@@ -289,12 +289,16 @@ function createWaterRenderer(target) {
       float gap = 0.0;
       float rim = 0.0;
       vec2 partShift = vec2(0.0);
+      // 궤적 한가운데서는 밀어내는 방향이 좌우로 뒤집힌다. 중심에서 0으로 줄여야 선 모양 이음새가 안 생긴다.
+      float centerFade = smoothstep(0.0, max(cutWidth * 0.7, 0.02), cutDist);
       if (cutWidth > 0.0005) {
-        gap = 1.0 - smoothstep(cutWidth * 0.25, cutWidth * 1.05, cutDist);
-        rim = exp(-pow((cutDist - cutWidth) / (0.012 + cutWidth * 0.22), 2.0));
+        // 좁아진 틈과 둔덕은 가는 선으로 남지 않도록 폭이 줄어드는 만큼 같이 옅어진다.
+        float openness = smoothstep(0.0, PART_WIDTH * 0.6, cutWidth);
+        gap = (1.0 - smoothstep(cutWidth * 0.25, cutWidth * 1.05, cutDist)) * openness;
+        rim = exp(-pow((cutDist - cutWidth) / (0.012 + cutWidth * 0.22), 2.0)) * centerFade * openness;
         // 바깥 물을 넓은 범위까지 밀어낸다. 가장자리일수록 많이 밀려 물이 쌓여 보인다.
         float push = cutWidth * exp(-max(cutDist - cutWidth, 0.0) / (cutWidth * 2.2 + 0.04));
-        partShift = -cutAway * push;
+        partShift = -cutAway * push * centerFade;
       }
 
       vec2 ambient = ambientSlope(p, u_time) * u_motion * (1.0 + u_impact * 0.9) * (1.0 - gap);
@@ -314,7 +318,7 @@ function createWaterRenderer(target) {
       }
       if (cutAge >= 0.0) {
         height += sideWave(cutDist, cutWidth, cutAge);
-        ripple += cutAway * (
+        ripple += cutAway * centerFade * (
           sideWave(cutDist + E, cutWidth, cutAge) - sideWave(max(cutDist - E, 0.0), cutWidth, cutAge)
         ) / (2.0 * E);
       }
